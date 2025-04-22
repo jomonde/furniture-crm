@@ -1,159 +1,125 @@
-import sqlite3
-
-def init_db():
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-
-    # Clients Table
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            contact TEXT,
-            rooms TEXT,
-            style TEXT,
-            budget TEXT
-        )
-    """)
-
-    # Room Sketches Table
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS room_sketches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_id INTEGER,
-            room_type TEXT,
-            dimensions TEXT,
-            layout_notes TEXT,
-            current_furniture TEXT,
-            desired_furniture TEXT,
-            special_considerations TEXT,
-            FOREIGN KEY (client_id) REFERENCES clients(id)
-        )
-    """)
-
-    # Notes Table (new!)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS client_notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_id INTEGER,
-            timestamp TEXT,
-            type TEXT,  -- "AI", "Manual", "Follow-Up", etc.
-            content TEXT,
-            FOREIGN KEY (client_id) REFERENCES clients(id)
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
+from supabase import create_client
 from datetime import datetime
+import os
 
-def add_note(client_id, note_type, content):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO client_notes (client_id, timestamp, type, content) VALUES (?, ?, ?, ?)",
-              (client_id, timestamp, note_type, content))
-    conn.commit()
-    conn.close()
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+supabase = create_client(url, key)
 
-def get_notes_by_client(client_id):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("SELECT id, timestamp, type, content FROM client_notes WHERE client_id = ? ORDER BY timestamp DESC", (client_id,))
-    notes = c.fetchall()
-    conn.close()
-    return notes
+# ----------------------------
+# CLIENTS
+# ----------------------------
 
-def delete_note(note_id):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM client_notes WHERE id = ?", (note_id,))
-    conn.commit()
-    conn.close()
-
-def update_note(note_id, new_content):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("UPDATE client_notes SET content = ? WHERE id = ?", (new_content, note_id))
-    conn.commit()
-    conn.close()
-
-def add_client(name, contact, rooms, style, budget):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO clients (name, contact, rooms, style, budget) VALUES (?, ?, ?, ?, ?)",
-              (name, contact, rooms, style, budget))
-    conn.commit()
-    conn.close()
-
-def get_all_clients():
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("SELECT name, contact, rooms, style, budget FROM clients")
-    data = c.fetchall()
-    conn.close()
-    return data
-
-def delete_client(name, contact):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM clients WHERE name = ? AND contact = ?", (name, contact))
-    conn.commit()
-    conn.close()
-
-def update_client(original_name, original_contact, new_name, contact, rooms, style, budget):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("""
-        UPDATE clients SET name = ?, contact = ?, rooms = ?, style = ?, budget = ?
-        WHERE name = ? AND contact = ?
-    """, (new_name, contact, rooms, style, budget, original_name, original_contact))
-    conn.commit()
-    conn.close()
-
-def add_room_sketch(client_id, room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("""
-        INSERT INTO room_sketches (client_id, room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (client_id, room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations))
-    conn.commit()
-    conn.close()
-
-def get_room_sketches_by_client(client_id):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("""
-        SELECT room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations
-        FROM room_sketches WHERE client_id = ?
-    """, (client_id,))
-    data = c.fetchall()
-    conn.close()
-    return data
+def add_client(name, phone, email, address, rooms, style, budget):
+    if not (phone or email or address):
+        raise ValueError("At least one of phone, email, or address is required.")
+    response = supabase.table("clients").insert({
+        "name": name,
+        "phone": phone,
+        "email": email,
+        "address": address,
+        "rooms": rooms,
+        "style": style,
+        "budget": budget
+    }).execute()
+    return response
 
 def get_all_clients_with_ids():
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
-    c.execute("SELECT id, name, contact, rooms, style, budget FROM clients")
-    data = c.fetchall()
-    conn.close()
-    return data
+    response = supabase.table("clients").select("*").order("id", desc=False).execute()
+    return response.data
 
-def update_client_notes(client_id, new_note, overwrite=False):
-    conn = sqlite3.connect("clients.db")
-    c = conn.cursor()
+def update_client(client_id, name, phone, email, address, rooms, style, budget):
+    supabase.table("clients").update({
+        "name": name,
+        "phone": phone,
+        "email": email,
+        "address": address,
+        "rooms": rooms,
+        "style": style,
+        "budget": budget
+    }).eq("id", client_id).execute()
 
-    if overwrite:
-        updated_notes = new_note
-    else:
-        # Append mode
-        c.execute("SELECT notes FROM clients WHERE id = ?", (client_id,))
-        current = c.fetchone()
-        current_notes = current[0] if current and current[0] else ""
-        updated_notes = current_notes + "\n\n" + new_note
+# ----------------------------
+# ROOM SKETCHES
+# ----------------------------
 
-    c.execute("UPDATE clients SET notes = ? WHERE id = ?", (updated_notes, client_id))
-    conn.commit()
-    conn.close()
+def add_room_sketch(client_id, room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations):
+    supabase.table("room_sketches").insert({
+        "client_id": client_id,
+        "room_type": room_type,
+        "dimensions": dimensions,
+        "layout_notes": layout_notes,
+        "current_furniture": current_furniture,
+        "desired_furniture": desired_furniture,
+        "special_considerations": special_considerations
+    }).execute()
+
+def get_room_sketches_by_client(client_id):
+    response = supabase.table("room_sketches").select("*").eq("client_id", client_id).order("id", desc=False).execute()
+    return response.data
+
+# ----------------------------
+# NOTES
+# ----------------------------
+
+def add_note(client_id, note_type, content):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    supabase.table("client_notes").insert({
+        "client_id": client_id,
+        "timestamp": timestamp,
+        "type": note_type,
+        "content": content
+    }).execute()
+
+def get_notes_by_client(client_id):
+    response = supabase.table("client_notes").select("*").eq("client_id", client_id).order("timestamp", desc=True).execute()
+    return response.data
+
+def update_note(note_id, new_content):
+    supabase.table("client_notes").update({
+        "content": new_content
+    }).eq("id", note_id).execute()
+
+def delete_note(note_id):
+    supabase.table("client_notes").delete().eq("id", note_id).execute()
+
+def get_sales_by_client(client_id):
+    response = supabase.table("sales").select("*").eq("client_id", client_id).order("date", desc=True).execute()
+    return response.data
+
+def update_sale(sale_id, amount, status, notes):
+    supabase.table("sales").update({
+        "amount": amount,
+        "status": status,
+        "notes": notes
+    }).eq("id", sale_id).execute()
+
+def void_sale(sale_id):
+    supabase.table("sales").update({
+        "status": "Void"
+    }).eq("id", sale_id).execute()
+
+def get_total_sales_volume_by_client(client_id):
+    result = supabase.table("sales").select("amount").eq("client_id", client_id).eq("status", "Sold").execute()
+    amounts = [s["amount"] for s in result.data if s["amount"] is not None]
+    return round(sum(amounts), 2)
+
+def get_average_sale_by_client(client_id):
+    result = supabase.table("sales").select("amount").eq("client_id", client_id).eq("status", "Sold").execute()
+    amounts = [s["amount"] for s in result.data if s["amount"] is not None]
+    return round(sum(amounts) / len(amounts), 2) if amounts else 0.0
+
+def get_first_sale_date_by_client(client_id):
+    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", asc=True).limit(1).execute()
+    if result.data:
+        return result.data[0]["date"]
+    return None
+
+def get_average_days_between_sales(client_id):
+    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", asc=True).execute()
+    dates = [datetime.strptime(s["date"], "%Y-%m-%d") for s in result.data if s.get("date")]
+    if len(dates) < 2:
+        return None
+    diffs = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    avg_days = sum(diffs) / len(diffs)
+    return round(avg_days, 1)
