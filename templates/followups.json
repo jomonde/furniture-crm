@@ -1,0 +1,21 @@
+{
+    "bought": {
+      "text": "Hey [Name], thanks again for your purchase! Let me know if you need anything.",
+      "phone": "Hi [Name], just checking in to make sure everything’s going smoothly with your order. Any questions I can help with?",
+      "email": {
+        "subject": "Thank You for Shopping with Us",
+        "body": "Hi [Name],\n\nThank you for choosing us. I hope you love your new [Product/Room]. If there's anything I can assist with—styling tips, product care, or next steps—I'm here for you.\n\nAll the best,\n[Your Name]"
+      },
+      "handwritten": "Thanks for trusting us with your space. Wishing you many great moments with your new [Product/Room]! – [Your Name]"
+    },
+    "browsed": {
+      "text": "Hi [Name], it was great chatting with you! Let me know if you have any questions or need help narrowing down choices.",
+      "phone": "Hi [Name], just following up from your recent visit. No pressure—just checking if I can help make the decision easier!",
+      "email": {
+        "subject": "Still Thinking About Your Space?",
+        "body": "Hi [Name],\n\nReally enjoyed helping you explore options the other day. If you’re still considering ideas, I’d love to help finalize the look or answer any questions you have.\n\nLet me know what works best for you!\n\nBest,\n[Your Name]"
+      },
+      "handwritten": "Hope our ideas helped inspire your space! Looking forward to helping when you’re ready. – [Your Name]"
+    }
+  }
+  

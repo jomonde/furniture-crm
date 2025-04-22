@@ -131,3 +131,21 @@ def get_average_days_between_sales(client_id):
     diffs = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
     avg_days = sum(diffs) / len(diffs)
     return round(avg_days, 1)
+
+# Add a new task to follow up
+def add_task(client_id, description, due_date):
+    supabase.table("tasks").insert({
+        "client_id": client_id,
+        "description": description,
+        "due_date": due_date,
+        "completed": False
+    }).execute()
+
+# Get all tasks due on a specific date
+def get_tasks_by_date(due_date):
+    result = supabase.table("tasks").select("*").eq("due_date", due_date).execute()
+    return result.data if result.data else []
+
+# Mark a task as complete
+def complete_task(task_id):
+    supabase.table("tasks").update({"completed": True}).eq("id", task_id).execute()

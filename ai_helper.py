@@ -1,5 +1,6 @@
 import openai
 import os
+import json
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -58,3 +59,10 @@ def generate_note_from_prompt(prompt, client_data, sketch_data):
 
     return response.choices[0].message.content.strip()
 
+def load_followup_templates():
+    with open("templates/followups.json", "r") as f:
+        return json.load(f)
+
+def get_followup_template(guest_type, style):
+    templates = load_followup_templates()
+    return templates.get(guest_type, {}).get(style)
