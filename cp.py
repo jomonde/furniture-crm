@@ -4,7 +4,7 @@ from db import (
     get_room_sketches_by_client,
     add_room_sketch,
     get_notes_by_client,
-    add_note,
+    add_note, add_client,
     update_note,
     delete_note,
     update_sale,
@@ -15,6 +15,32 @@ from ai_helper import generate_layout_and_followup
 
 st.set_page_config(page_title="Clients", page_icon="📇")
 st.title("📇 Client Profile")
+
+if st.checkbox ("➕ Add a New Client"):
+    with st.form("add_client_form"):
+        name = st.text_input("Full Name")
+        phone = st.text_input("Phone Number")
+        email = st.text_input("Email Address")
+        address = st.text_input("Home Address")
+        rooms = st.text_input("Room(s) of Interest (e.g. Living, Bedroom)")
+        style = st.text_input("Style Preference")
+        budget = st.text_input("Estimated Budget")
+        add_another = st.checkbox("Add another client after this?")
+
+        submitted = st.form_submit_button("Save Client")
+
+        if submitted:
+            if not name.strip():
+                st.warning("Name is required.")
+            elif not (phone.strip() or email.strip() or address.strip()):
+                st.warning("At least one contact method (phone, email, or address) is required.")
+            else:
+                add_client(name, phone, email, address, rooms, style, budget)
+                st.success("Client added successfully!")
+
+                # Reset form fields if checkbox is unchecked (simulate clear)
+                if not add_another:
+                    st.experimental_rerun()
 
 # Fetch all clients
 clients = get_all_clients_with_ids()

@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import date
+from db import add_client
 from db_dashboard import (
     get_total_clients,
     get_clients_by_status,
@@ -12,6 +13,27 @@ from db_dashboard import (
 
 st.set_page_config(page_title="Dashboard", page_icon="📊")
 st.title("📊 Sales Dashboard")
+
+if st.checkbox("➕ Add a New Client"):
+    with st.form("add_client_form", clear_on_submit=True):
+        name = st.text_input("Full Name")
+        phone = st.text_input("Phone Number")
+        email = st.text_input("Email Address")
+        address = st.text_input("Home Address")
+        rooms = st.text_input("Room(s) of Interest (e.g. Living, Bedroom)")
+        style = st.text_input("Style Preference")
+        budget = st.text_input("Estimated Budget")
+
+        submitted = st.form_submit_button("Save Client")
+
+        if submitted:
+            if not name.strip():
+                st.warning("Name is required.")
+            elif not (phone.strip() or email.strip() or address.strip()):
+                st.warning("At least one contact method (phone, email, or address) is required.")
+            else:
+                add_client(name, phone, email, address, rooms, style, budget)
+                st.success("Client added successfully!")
 
 # -------------------------------
 # METRICS ROW

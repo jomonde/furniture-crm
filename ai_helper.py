@@ -1,9 +1,10 @@
 import openai
 import os
+import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def generate_layout_and_followup(sketch_data):
     prompt = f"""
@@ -33,3 +34,27 @@ def generate_layout_and_followup(sketch_data):
     )
 
     return response.choices[0].message.content
+
+def generate_note_from_prompt(prompt, client_data, sketch_data):
+    name = client_data.get("name", "the client")
+    room = sketch_data.get("room_type", "their space")
+    style = client_data.get("style", "")
+    layout = sketch_data.get("layout_notes", "")
+    special = sketch_data.get("special_considerations", "")
+
+    full_prompt = (
+        f"Write a {prompt} for {name}. "
+        f"Their room of interest is {room}. "
+        f"They prefer a {style} style. "
+        f"Layout notes: {layout}. "
+        f"Special considerations: {special}."
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": full_prompt}],
+        max_tokens=400
+    )
+
+    return response.choices[0].message.content.strip()
+

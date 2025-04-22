@@ -1,9 +1,13 @@
 from supabase import create_client
 from datetime import datetime
+from dotenv import load_dotenv
 import os
+import streamlit as st
 
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
+load_dotenv()
+
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # ----------------------------
@@ -38,6 +42,10 @@ def update_client(client_id, name, phone, email, address, rooms, style, budget):
         "style": style,
         "budget": budget
     }).eq("id", client_id).execute()
+
+def get_client_by_id(client_id):
+    result = supabase.table("clients").select("*").eq("id", client_id).single().execute()
+    return result.data
 
 # ----------------------------
 # ROOM SKETCHES
@@ -110,13 +118,13 @@ def get_average_sale_by_client(client_id):
     return round(sum(amounts) / len(amounts), 2) if amounts else 0.0
 
 def get_first_sale_date_by_client(client_id):
-    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", asc=True).limit(1).execute()
+    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", desc=False).limit(1).execute()
     if result.data:
         return result.data[0]["date"]
     return None
 
 def get_average_days_between_sales(client_id):
-    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", asc=True).execute()
+    result = supabase.table("sales").select("date").eq("client_id", client_id).eq("status", "Sold").order("date", desc=False).execute()
     dates = [datetime.strptime(s["date"], "%Y-%m-%d") for s in result.data if s.get("date")]
     if len(dates) < 2:
         return None
