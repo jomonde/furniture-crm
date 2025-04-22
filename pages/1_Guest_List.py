@@ -7,6 +7,8 @@ from db import (
     add_room_sketch,
     get_notes_by_client,
     add_note,
+    get_sales_by_client,
+    update_sale
 )
 from ai_helper import generate_note_from_prompt
 from datetime import datetime
@@ -61,6 +63,55 @@ else:
     **Style:** {client_data['style']}  
     **Budget:** {client_data['budget']}  
     """)
+
+# -------------------------------
+# SALES HISTORY
+# -------------------------------
+st.subheader("💰 Sales History")
+
+sales = get_sales_by_client(selected_id)
+
+if not sales:
+    st.info("No sales recorded yet for this client.")
+else:
+    sales = sorted(sales, key=lambda s: s["date"], reverse=True)
+
+    for sale in sales:
+        sale_id = sale["id"]
+        date_str = datetime.fromisoformat(sale["date"]).strftime('%b %d, %Y')
+        header = f"Sale on {date_str} – ${sale['amount']} ({sale['status']})"
+        
+        with st.expander(header):
+            new_amount = st.number_input(
+                "💵 Sale Amount",
+                value=float(sale["amount"]),
+                key=f"amount_{sale_id}"
+            )
+
+            new_status = st.selectbox(
+                "🔄 Status",
+                options=["Open", "Closed", "Unsold", "Void"],
+                index=["Open", "Closed", "Unsold", "Void"].index(sale["status"]),
+                key=f"status_{sale_id}"
+            )
+
+            new_notes = st.text_area(
+                "📝 Notes",
+                value=sale.get("notes", ""),
+                key=f"notes_{sale_id}"
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Save Sale Updates", key=f"save_{sale_id}"):
+                    update_sale(sale_id, new_amount, new_status, new_notes)
+                    st.success("Sale updated successfully.")
+                    st.rerun()
+            with col2:
+                if st.button("🗑️ Mark as Void", key=f"void_{sale_id}") and sale["status"] != "Void":
+                    update_sale(sale_id, new_amount, "Void", new_notes)
+                    st.success("Sale marked as Void.")
+                    st.rerun()
 
 # -------------------------------
 # SKETCH ENTRY (Toggle + List)
@@ -146,4 +197,3 @@ with st.form("manual_note_form", clear_on_submit=True):
         add_note(selected_id, "Manual", manual_note)
         st.success("Note saved.")
         st.rerun()
-

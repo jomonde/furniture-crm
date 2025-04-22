@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
 from supabase import create_client
-from db import add_client
+from db import add_client, get_all_clients_with_ids
 import os
 
 # Supabase init
@@ -13,11 +13,11 @@ st.set_page_config(page_title="Sale", page_icon="🧾")
 st.title("🧾 Record a Sale")
 
 # Fetch clients
-client_data = supabase.table("clients").select("id", "name").order("name").execute()
-clients = client_data.data
-client_options = {client["name"]: client["id"] for client in clients}
+clients = get_all_clients_with_ids()
+client_lookup = {f"{c['name']} ({c['phone']})": c['id'] for c in clients}
 
-new_client_toggle = st.checkbox("➕ Add a new client instead of selecting existing")
+
+new_client_toggle = st.checkbox("➕ Add a new client!")
 
 if new_client_toggle:
     with st.form("inline_add_client"):
@@ -43,9 +43,17 @@ if new_client_toggle:
                 st.session_state["selected_client_name"] = name
                 st.rerun()
 else:
-    selected_client_name = st.selectbox("Select Client", ["-- Select Client --"] + list(client_options.keys()), key="selected_client_name")
-    if selected_client_name != "-- Select Client --":
-        selected_client_id = client_options[selected_client_name]
+    st.subheader("🔍 Search for Client")
+
+    search_term = st.text_input("Search by name or phone")
+
+    # Filter options live
+    filtered_clients = [label for label in client_lookup if search_term.lower() in label.lower()]
+
+    selected_client = st.selectbox("Select from matches", filtered_clients if filtered_clients else ["No matches found"])
+
+if selected_client != "No matches found":
+    selected_client_id = client_lookup[selected_client]
 
 # -------------------------------
 # Sale Entry Form
@@ -61,13 +69,13 @@ with st.form("record_sale_form"):
     submitted = st.form_submit_button("Record Sale")
 
     if submitted:
-        if client_data == "-- Select Client --":
+        if selected_client_id == "-- Select Client --":
             st.warning("Please select a client.")
         elif amount <= 0:
             st.warning("Please enter a valid sale amount.")
         else:
             supabase.table("sales").insert({
-                "client_id": client_options[client_data],
+                "client_id": selected_client_id,
                 "date": sale_date.isoformat(),
                 "amount": amount,
                 "status": status,
