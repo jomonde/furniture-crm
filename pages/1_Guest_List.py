@@ -154,11 +154,20 @@ if sketches:
 # -------------------------------
 # NOTES + AI GENERATION
 # -------------------------------
-st.subheader("🗒️ Notes")
+st.subheader("🗒️ Client Notes")
 
 notes = get_notes_by_client(selected_id)
-for note in notes:
-    st.markdown(f"- *{note['timestamp'][:10]}*: {note['content']}")
+
+if not notes:
+    st.info("No notes yet for this client.")
+else:
+    for i, note in enumerate(notes):
+        # Create a preview: first line, max 100 characters
+        preview = note["content"].strip().split("\n")[0][:100]
+        label = f"{note['timestamp'][:10]} – {preview}{'...' if len(preview) == 100 else ''}"
+
+        with st.expander(label):
+            st.markdown(note["content"])
 
 st.markdown("---")
 
