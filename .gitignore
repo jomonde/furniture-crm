@@ -1,5 +1,5 @@
-__pycache__\
+__pycache__/
 *.pyc
 clients.db
 .env
-.streamlit\secrets.toml
+.streamlit/secrets.toml
