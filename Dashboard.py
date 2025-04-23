@@ -1,39 +1,18 @@
 import streamlit as st
 from datetime import date
-from db import add_client
+from db import add_client, get_open_tasks, get_overdue_tasks, complete_task
 from db_dashboard import (
     get_total_clients,
     get_clients_by_status,
     get_total_sales_volume,
     get_average_sale,
     get_close_rate,
-    get_tasks,
-    add_task
+    get_tasks, 
+    add_task,
 )
 
 st.set_page_config(page_title="Dashboard", page_icon="📊")
 st.title("📊 Sales Dashboard")
-
-if st.checkbox("➕ Add a New Client"):
-    with st.form("add_client_form", clear_on_submit=True):
-        name = st.text_input("Full Name")
-        phone = st.text_input("Phone Number")
-        email = st.text_input("Email Address")
-        address = st.text_input("Home Address")
-        rooms = st.text_input("Room(s) of Interest (e.g. Living, Bedroom)")
-        style = st.text_input("Style Preference")
-        budget = st.text_input("Estimated Budget")
-
-        submitted = st.form_submit_button("Save Client")
-
-        if submitted:
-            if not name.strip():
-                st.warning("Name is required.")
-            elif not (phone.strip() or email.strip() or address.strip()):
-                st.warning("At least one contact method (phone, email, or address) is required.")
-            else:
-                add_client(name, phone, email, address, rooms, style, budget)
-                st.success("Client added successfully!")
 
 # -------------------------------
 # METRICS ROW
@@ -68,27 +47,66 @@ col6.metric("Clients Closed", clients_closed)
 col7.metric("Voided Invoices", voided_invoices)
 col8.metric("Clients Unsold", clients_unsold)
 
+if st.checkbox("➕ Add a New Client"):
+    with st.form("add_client_form", clear_on_submit=True):
+        name = st.text_input("Full Name")
+        phone = st.text_input("Phone Number")
+        email = st.text_input("Email Address")
+        address = st.text_input("Home Address")
+        rooms = st.text_input("Room(s) of Interest (e.g. Living, Bedroom)")
+        style = st.text_input("Style Preference")
+        budget = st.text_input("Estimated Budget")
+
+        submitted = st.form_submit_button("Save Client")
+
+        if submitted:
+            if not name.strip():
+                st.warning("Name is required.")
+            elif not (phone.strip() or email.strip() or address.strip()):
+                st.warning("At least one contact method (phone, email, or address) is required.")
+            else:
+                add_client(name, phone, email, address, rooms, style, budget)
+                st.success("Client added successfully!")
+
 # -------------------------------
 # DAILY TASKS / REMINDERS
 # -------------------------------
-st.markdown("---")
-st.subheader("📝 Reminders & Daily Tasks")
+from db import get_open_tasks, get_overdue_tasks, complete_task
+from datetime import date
 
-tasks = get_tasks()
+st.subheader("✅ Tasks Overview")
 
-with st.form("task_form", clear_on_submit=True):
-    task_title = st.text_input("Task")
-    task_due = st.date_input("Due Date", value=date.today())
-    submitted = st.form_submit_button("Add Task")
-    if submitted:
-        add_task(task_title, task_due)
-        st.success("Task added!")
-        st.rerun()
+# Today’s date
+today = date.today().isoformat()
 
-for task in tasks:
-    status = "✅" if task["completed"] else "⬜"
-    due = task["due_date"]
-    st.markdown(f"- {status} **{task['title']}** — due {due}")
+# Get open and overdue tasks
+open_tasks = get_open_tasks()
+overdue_tasks = get_overdue_tasks()
+
+# 🔴 Overdue tasks
+if overdue_tasks:
+    st.markdown("### 🔴 Overdue Tasks")
+    for task in overdue_tasks:
+        label = f"{task['description']} (Client ID {task['client_id']}) — due {task['due_date']}"
+        if st.checkbox(label, key=f"overdue_{task['id']}"):
+            complete_task(task["id"])
+            st.success("Marked overdue task as complete.")
+            st.rerun()
+else:
+    st.markdown("✅ No overdue tasks!")
+
+# 🟡 Tasks Due Today
+if open_tasks:
+    st.markdown("### 🟡 Tasks Due Today & Open")
+    for task in open_tasks:
+        label = f"{task['description']} (Client ID {task['client_id']}) — due {task['due_date']}"
+        if st.checkbox(label, key=f"open_{task['id']}"):
+            complete_task(task["id"])
+            st.success("Task marked as complete.")
+            st.rerun()
+else:
+    st.info("No open tasks scheduled.")
+
 
 # -------------------------------
 # PERFORMANCE SNAPSHOT

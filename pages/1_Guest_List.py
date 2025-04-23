@@ -8,7 +8,9 @@ from db import (
     get_notes_by_client,
     add_note,
     get_sales_by_client,
-    update_sale
+    update_sale,
+    get_tasks_by_client,
+    complete_task,
 )
 from ai_helper import generate_note_from_prompt
 from datetime import datetime
@@ -171,32 +173,7 @@ else:
 
 st.markdown("---")
 
-st.markdown("**Generate New Note with AI**")
-
-if "ai_result" not in st.session_state:
-    st.session_state.ai_result = ""
-
-with st.form("ai_note_form"):
-    prompt = st.text_input("Prompt (e.g., follow-up text, room suggestion)")
-    generate = st.form_submit_button("Generate Note")
-
-if generate and prompt.strip():
-    with st.spinner("Thinking..."):
-        sketch_context = sketches[-1] if sketches else {}
-        result = generate_note_from_prompt(prompt, client_data, sketch_context)
-    st.session_state.ai_result = result
-    st.success("Note generated!")
-    st.markdown(result)
-
-if st.session_state.ai_result:
-    st.markdown(st.session_state.ai_result)
-    if st.button("💾 Save This Note"):
-        add_note(selected_id, "AI Helped", st.session_state.ai_result)
-        st.success("Note saved.")
-        st.session_state.ai_result = ""  # Clear after saving
-        st.rerun()
-
-st.markdown("### ✍️ Add Manual Note")
+st.markdown("### ✍️ Add Note")
 
 with st.form("manual_note_form", clear_on_submit=True):
     manual_note = st.text_area("Write your note")
@@ -206,3 +183,21 @@ with st.form("manual_note_form", clear_on_submit=True):
         add_note(selected_id, "Manual", manual_note)
         st.success("Note saved.")
         st.rerun()
+
+st.subheader("✅ Task History")
+
+tasks = get_tasks_by_client(selected_id)
+
+if not tasks:
+    st.info("No tasks yet for this client.")
+else:
+    for task in tasks:
+        label = f"{task['description']} — due {task['due_date']}"
+        if not task["completed"]:
+            checked = st.checkbox(label, key=f"task_{task['id']}")
+            if checked:
+                complete_task(task["id"])
+                st.success("Task marked complete.")
+                st.rerun()
+        else:
+            st.markdown(f"🗂️ **Completed:** {label} (on {task['due_date']})")

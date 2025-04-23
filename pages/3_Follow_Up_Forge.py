@@ -1,6 +1,12 @@
 import streamlit as st
 from datetime import date
-from db import get_all_clients_with_ids, add_note, add_task, get_tasks_by_date, complete_task
+from db import (
+    get_all_clients_with_ids,
+    get_client_by_id,
+    get_room_sketches_by_client,
+    add_note,
+)
+from ai_helper import generate_followup_from_template
 import json
 
 # Load templates
@@ -17,40 +23,28 @@ client_display = st.selectbox("Select Client", ["-- Select --"] + list(client_op
 
 if client_display != "-- Select --":
     selected_id = client_options[client_display]
+    client_data = get_client_by_id(selected_id)
+    sketches = get_room_sketches_by_client(selected_id)
+    latest_sketch = sketches[-1] if sketches else {}
 
     # Select follow-up type
     guest_type = st.selectbox("Guest Type", ["bought", "browsed"])
     style = st.selectbox("Message Style", ["text", "phone", "email", "handwritten"])
 
-    if st.button("📋 Generate Follow-Up"):
+    if st.button("📋 Generate AI Follow-Up"):
+        # Load and format the selected template
         template = followup_templates.get(guest_type, {}).get(style)
+        template_text = f"Subject: {template['subject']}\n\n{template['body']}" if isinstance(template, dict) else template
 
-        if isinstance(template, dict):
-            st.markdown(f"**Subject:** {template['subject']}")
-            st.markdown(template["body"])
-            message = f"Subject: {template['subject']}\n\n{template['body']}"
-        else:
-            st.markdown(template)
-            message = template
+        # 🧠 Show spinner while AI is processing
+        with st.spinner("Talking to the AI..."):
+            ai_response = generate_followup_from_template(template_text, client_data, latest_sketch, message_style=style)
 
-        if st.button("💾 Save and Create Task"):
-            add_note(selected_id, style.capitalize(), message)
-            add_task(selected_id, f"{style.capitalize()} follow-up", date.today().isoformat())
-            st.success("Note saved and task created.")
+        st.markdown("### 🧠 AI-Generated Message")
+        st.markdown(ai_response)
 
-# Task list
-st.markdown("---")
-st.subheader("📅 Today's Follow-Up Tasks")
+        # Save follow-up
+        if st.button("💾 Save as Note"):
+            add_note(selected_id, style.capitalize(), ai_response)
+            st.success("AI message saved.")
 
-tasks = get_tasks_by_date(date.today().isoformat())
-
-if not tasks:
-    st.info("No tasks scheduled for today.")
-else:
-    for task in tasks:
-        label = f"{task['description']} for client ID {task['client_id']}"
-        checked = st.checkbox(label, value=task["completed"], key=task["id"])
-        if checked and not task["completed"]:
-            complete_task(task["id"])
-            st.success("Task marked as complete.")
-            st.rerun()

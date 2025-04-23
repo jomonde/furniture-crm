@@ -141,6 +141,15 @@ def add_task(client_id, description, due_date):
         "completed": False
     }).execute()
 
+# Get all tasks by specific client
+def get_tasks_by_client(client_id):
+    result = supabase.table("tasks") \
+        .select("*") \
+        .eq("client_id", client_id) \
+        .order("due_date") \
+        .execute()
+    return result.data if result.data else []
+
 # Get all tasks due on a specific date
 def get_tasks_by_date(due_date):
     result = supabase.table("tasks").select("*").eq("due_date", due_date).execute()
@@ -149,3 +158,23 @@ def get_tasks_by_date(due_date):
 # Mark a task as complete
 def complete_task(task_id):
     supabase.table("tasks").update({"completed": True}).eq("id", task_id).execute()
+
+def get_open_tasks():
+    result = supabase.table("tasks") \
+        .select("*") \
+        .eq("completed", False) \
+        .order("due_date") \
+        .execute()
+    return result.data if result.data else []
+
+from datetime import date
+
+def get_overdue_tasks():
+    today = date.today().isoformat()
+    result = supabase.table("tasks") \
+        .select("*") \
+        .lt("due_date", today) \
+        .eq("completed", False) \
+        .order("due_date") \
+        .execute()
+    return result.data if result.data else []
