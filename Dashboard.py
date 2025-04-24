@@ -1,6 +1,17 @@
 import streamlit as st
 from datetime import date
-from db import add_client, get_open_tasks, get_overdue_tasks, complete_task
+
+# --- Engines ---
+from engines.task_engine import run_daily_task_generator  # 🔁 Automatically creates follow-up tasks
+
+# --- DB Access ---
+from db import (
+    add_client,
+    get_open_tasks,
+    get_overdue_tasks,
+    complete_task
+)
+
 from db_dashboard import (
     get_total_clients,
     get_clients_by_status,
@@ -11,6 +22,12 @@ from db_dashboard import (
     add_task,
 )
 
+# --- Run the task engine automatically ---
+if "task_engine_ran" not in st.session_state:
+    run_daily_task_generator()
+    st.session_state.task_engine_ran = True
+
+# --- Page setup ---
 st.set_page_config(page_title="Dashboard", page_icon="📊")
 st.title("📊 Sales Dashboard")
 
@@ -47,6 +64,9 @@ col6.metric("Clients Closed", clients_closed)
 col7.metric("Voided Invoices", voided_invoices)
 col8.metric("Clients Unsold", clients_unsold)
 
+# -------------------------------
+# ADD NEW CLIENT
+# -------------------------------
 if st.checkbox("➕ Add a New Client"):
     with st.form("add_client_form", clear_on_submit=True):
         name = st.text_input("Full Name")
@@ -71,15 +91,8 @@ if st.checkbox("➕ Add a New Client"):
 # -------------------------------
 # DAILY TASKS / REMINDERS
 # -------------------------------
-from db import get_open_tasks, get_overdue_tasks, complete_task
-from datetime import date
-
 st.subheader("✅ Tasks Overview")
 
-# Today’s date
-today = date.today().isoformat()
-
-# Get open and overdue tasks
 open_tasks = get_open_tasks()
 overdue_tasks = get_overdue_tasks()
 
@@ -88,25 +101,27 @@ if overdue_tasks:
     st.markdown("### 🔴 Overdue Tasks")
     for task in overdue_tasks:
         label = f"{task['description']} (Client ID {task['client_id']}) — due {task['due_date']}"
+        if task.get("message"):
+            st.markdown(f"*💬 Suggested:* {task['message']}")
         if st.checkbox(label, key=f"overdue_{task['id']}"):
             complete_task(task["id"])
-            st.success("Marked overdue task as complete.")
+            st.success("Overdue task completed.")
             st.rerun()
 else:
-    st.markdown("✅ No overdue tasks!")
-
+    st.info("✅ No overdue tasks!")
 # 🟡 Tasks Due Today
 if open_tasks:
     st.markdown("### 🟡 Tasks Due Today & Open")
     for task in open_tasks:
         label = f"{task['description']} (Client ID {task['client_id']}) — due {task['due_date']}"
+        if task.get("message"):
+            st.markdown(f"*💬 Suggested Message:*\n{task['message']}")
         if st.checkbox(label, key=f"open_{task['id']}"):
             complete_task(task["id"])
             st.success("Task marked as complete.")
             st.rerun()
 else:
     st.info("No open tasks scheduled.")
-
 
 # -------------------------------
 # PERFORMANCE SNAPSHOT

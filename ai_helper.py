@@ -2,6 +2,8 @@ from openai import OpenAI
 import os
 import json
 import streamlit as st
+from templates.followups import FOLLOW_UP_MESSAGES
+from templates.followup_tones import FOLLOW_UP_TONES
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -68,28 +70,29 @@ def get_followup_template(guest_type, style):
 import streamlit as st
 from openai import OpenAI
 
-def generate_followup_from_template(template_text, client_data, sketch_data=None, message_style="text"):
+def generate_followup_from_template(client_type, message_style, client_data, sketch_data=None):
     sketch_data = sketch_data or {}
 
-    # Add tone guidance based on style
-    style_instructions = {
-        "text": "Keep it short, casual, and friendly—like you're texting someone you’ve already spoken to.",
-        "phone": "Write it like a quick phone call script—natural and spoken, with a warm greeting and easy closing.",
-        "email": "Make it slightly longer and thoughtful. Include a warm intro, body with value, and a polite call-to-action.",
-        "handwritten": "Be heartfelt, personal, and brief—as if writing a quick thank-you note."
-    }
+    template = FOLLOW_UP_MESSAGES.get(client_type, {}).get(message_style)
+    if not template:
+        return "⚠️ No message template available for this client type and style."
 
-    tone_instruction = style_instructions.get(message_style.lower(), "")
+    template_text = (
+        f"Subject: {template['subject']}\n\n{template['body']}" if isinstance(template, dict) else template
+    )
 
-    prompt = f"""You are a helpful, warm-toned furniture sales assistant writing a personalized follow-up message.
+    tone_instruction = FOLLOW_UP_TONES.get(message_style.lower(), "")
 
-Here is a sample template to base your message on:
-"{template_text}"
+    prompt = f"""
+You are a helpful, warm-toned furniture sales assistant writing a personalized {message_style} message.
+
+Here is a sample template to use as a base:
+\"\"\"{template_text}\"\"\"
 
 Client Info:
 Name: {client_data.get('name')}
 Phone: {client_data.get('phone')}
-Style: {client_data.get('style')}
+Style Preference: {client_data.get('style')}
 Rooms of Interest: {client_data.get('rooms')}
 Budget: {client_data.get('budget')}
 
@@ -101,14 +104,13 @@ Desired Furniture: {sketch_data.get('desired_furniture')}
 Notes: {sketch_data.get('layout_notes')}
 
 {tone_instruction}
+Write this in a personal, human tone, avoiding robotic or generic phrasing.
 """
-
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a helpful and friendly assistant who writes follow-up messages for a furniture store."},
+            {"role": "system", "content": "You are a helpful assistant for a furniture sales company."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=400,

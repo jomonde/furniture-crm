@@ -1,10 +1,7 @@
 from supabase import create_client
 from datetime import datetime
-from dotenv import load_dotenv
 import os
 import streamlit as st
-
-load_dotenv()
 
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
@@ -14,7 +11,7 @@ supabase = create_client(url, key)
 # CLIENTS
 # ----------------------------
 
-def add_client(name, phone, email, address, rooms, style, budget):
+def add_client(name, phone, email, address, rooms, style, budget, status):
     if not (phone or email or address):
         raise ValueError("At least one of phone, email, or address is required.")
     response = supabase.table("clients").insert({
@@ -24,7 +21,8 @@ def add_client(name, phone, email, address, rooms, style, budget):
         "address": address,
         "rooms": rooms,
         "style": style,
-        "budget": budget
+        "budget": budget,
+        "status": status
     }).execute()
     return response
 
@@ -32,7 +30,7 @@ def get_all_clients_with_ids():
     response = supabase.table("clients").select("*").order("id", desc=False).execute()
     return response.data
 
-def update_client(client_id, name, phone, email, address, rooms, style, budget):
+def update_client(client_id, name, phone, email, address, rooms, style, budget, status):
     supabase.table("clients").update({
         "name": name,
         "phone": phone,
@@ -40,7 +38,8 @@ def update_client(client_id, name, phone, email, address, rooms, style, budget):
         "address": address,
         "rooms": rooms,
         "style": style,
-        "budget": budget
+        "budget": budget,
+        "status": status
     }).eq("id", client_id).execute()
 
 def get_client_by_id(client_id):
@@ -133,13 +132,20 @@ def get_average_days_between_sales(client_id):
     return round(avg_days, 1)
 
 # Add a new task to follow up
-def add_task(client_id, description, due_date):
-    supabase.table("tasks").insert({
+def add_task(client_id, description, due_date, message=None, sale_id=None):
+    task_data = {
         "client_id": client_id,
         "description": description,
         "due_date": due_date,
         "completed": False
-    }).execute()
+    }
+
+    if message:
+        task_data["message"] = message
+    if sale_id:
+        task_data["sale_id"] = sale_id
+
+    supabase.table("tasks").insert(task_data).execute()
 
 # Get all tasks by specific client
 def get_tasks_by_client(client_id):
@@ -178,3 +184,23 @@ def get_overdue_tasks():
         .order("due_date") \
         .execute()
     return result.data if result.data else []
+
+def get_active_clients():
+    result = supabase.table("clients") \
+        .select("*") \
+        .eq("status", "Active") \
+        .order("name") \
+        .execute()
+    return result.data if result.data else []
+
+def get_last_task_date(client_id):
+    result = supabase.table("tasks") \
+        .select("due_date") \
+        .eq("client_id", client_id) \
+        .order("due_date", desc=True) \
+        .limit(1) \
+        .execute()
+
+    if result.data and len(result.data) > 0:
+        return result.data[0]["due_date"]
+    return None

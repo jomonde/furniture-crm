@@ -7,11 +7,6 @@ from db import (
     add_note,
 )
 from ai_helper import generate_followup_from_template
-import json
-
-# Load templates
-with open("templates/followups.json", "r") as f:
-    followup_templates = json.load(f)
 
 st.set_page_config(page_title="✉️ Follow-Up Forge", page_icon="✉️")
 st.title("✉️ Follow-Up Forge")
@@ -27,24 +22,22 @@ if client_display != "-- Select --":
     sketches = get_room_sketches_by_client(selected_id)
     latest_sketch = sketches[-1] if sketches else {}
 
-    # Select follow-up type
+    # Select follow-up type and style
     guest_type = st.selectbox("Guest Type", ["bought", "browsed"])
     style = st.selectbox("Message Style", ["text", "phone", "email", "handwritten"])
 
     if st.button("📋 Generate AI Follow-Up"):
-        # Load and format the selected template
-        template = followup_templates.get(guest_type, {}).get(style)
-        template_text = f"Subject: {template['subject']}\n\n{template['body']}" if isinstance(template, dict) else template
-
-        # 🧠 Show spinner while AI is processing
         with st.spinner("Talking to the AI..."):
-            ai_response = generate_followup_from_template(template_text, client_data, latest_sketch, message_style=style)
+            ai_response = generate_followup_from_template(
+                client_type=guest_type,
+                message_style=style,
+                client_data=client_data,
+                sketch_data=latest_sketch
+            )
 
         st.markdown("### 🧠 AI-Generated Message")
         st.markdown(ai_response)
 
-        # Save follow-up
         if st.button("💾 Save as Note"):
             add_note(selected_id, style.capitalize(), ai_response)
             st.success("AI message saved.")
-
