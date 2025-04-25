@@ -17,9 +17,7 @@ from db_dashboard import (
     get_clients_by_status,
     get_total_sales_volume,
     get_average_sale,
-    get_close_rate,
-    get_tasks, 
-    add_task,
+    get_close_rate
 )
 
 # --- Run the task engine automatically ---
