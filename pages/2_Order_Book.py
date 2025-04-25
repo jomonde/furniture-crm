@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
 from supabase import create_client
-from db import add_client, get_all_clients_with_ids
+from db import add_client, get_all_clients_with_ids, get_client_id
 import os
 
 # Supabase init
@@ -16,6 +16,7 @@ st.title("🧾 Record a Sale")
 clients = get_all_clients_with_ids()
 client_lookup = {f"{c['name']} ({c['phone']})": c['id'] for c in clients}
 
+selected_client = None
 
 new_client_toggle = st.checkbox("➕ Add a new client!")
 
@@ -39,20 +40,27 @@ if new_client_toggle:
                 add_client(name, phone, email, address, rooms, style, budget)
                 st.success("Client added!")
 
-                # Refresh client list & auto-select new client
-                st.session_state["selected_client_name"] = name
+                # Save to session for optional auto-select behavior
+                st.session_state["selected_client_name"] = f"{name} ({phone})"
                 st.rerun()
 else:
     st.subheader("🔍 Search for Client")
-
     search_term = st.text_input("Search by name or phone")
 
-    # Filter options live
     filtered_clients = [label for label in client_lookup if search_term.lower() in label.lower()]
+    default_index = (
+        filtered_clients.index(st.session_state["selected_client_name"])
+        if "selected_client_name" in st.session_state and st.session_state["selected_client_name"] in filtered_clients
+        else 0
+    )
 
-    selected_client = st.selectbox("Select from matches", filtered_clients if filtered_clients else ["No matches found"])
+    selected_client = st.selectbox(
+        "Select from matches",
+        filtered_clients if filtered_clients else ["No matches found"],
+        index=default_index
+    )
 
-if selected_client != "No matches found":
+if selected_client and selected_client != "No matches found":
     selected_client_id = client_lookup[selected_client]
 
 # -------------------------------

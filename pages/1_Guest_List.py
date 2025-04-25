@@ -10,7 +10,8 @@ from db import (
     get_sales_by_client,
     update_sale,
     get_tasks_by_client,
-    complete_task
+    complete_task,
+    add_client
 )
 from engines.sketch_engine import generate_sketch_summary
 from engines.message_engine import generate_followup_message
@@ -24,7 +25,33 @@ st.title("👥 Clients")
 # -------------------------------
 clients = get_all_clients_with_ids()
 client_options = {f"{c['name']} ({c['phone']})": c["id"] for c in clients}
-client_display = st.selectbox("Select Client", ["-- Select --"] + list(client_options.keys()))
+st.markdown("### ➕ Add New Client")
+with st.expander("New Client Form", expanded=False):
+    with st.form("add_new_client"):
+        new_name = st.text_input("Name")
+        new_phone = st.text_input("Phone")
+        new_email = st.text_input("Email")
+        new_address = st.text_input("Address")
+        new_rooms = st.text_input("Rooms of Interest")
+        new_style = st.text_input("Style Preference")
+        new_budget = st.text_input("Budget")
+        new_status = st.selectbox("Status", ["active", "inactive"])
+        submit_new = st.form_submit_button("Add Client")
+
+        if submit_new and new_name and new_phone:
+            add_client(new_name, new_phone, new_email, new_address, new_rooms, new_style, new_budget, new_status)
+            st.success(f"Client '{new_name}' added successfully.")
+            st.rerun()
+
+# 🔍 Searchable client dropdown
+st.markdown("### 🔎 Select a Client to View Details")
+search_term = st.text_input("Search Client by Name or Phone")
+filtered_clients = {
+    label: cid for label, cid in client_options.items()
+    if search_term.lower() in label.lower()
+}
+
+client_display = st.selectbox("Client List", ["-- Select --"] + list(filtered_clients.keys()))
 
 if client_display != "-- Select --":
     selected_id = client_options[client_display]

@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date
 
 # --- Engines ---
-from engines.task_engine import run_daily_task_generator  # 🔁 Automatically creates follow-up tasks
+from engines.task_engine import run_daily_task_generator 
 
 # --- DB Access ---
 from db import (

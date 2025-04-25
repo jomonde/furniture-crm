@@ -204,3 +204,26 @@ def get_last_task_date(client_id):
     if result.data and len(result.data) > 0:
         return result.data[0]["due_date"]
     return None
+
+def get_client_id(name=None, phone=None):
+    """
+    Get a client ID by name, phone, or both. Returns None if not found.
+    """
+    if not name and not phone:
+        return None
+
+    query = supabase.table("clients").select("id")
+
+    if name and phone:
+        query = query.eq("name", name).eq("phone", phone)
+    elif name:
+        query = query.eq("name", name)
+    elif phone:
+        query = query.eq("phone", phone)
+
+    response = query.execute()
+    data = response.data
+
+    if data and len(data) > 0:
+        return data[0]["id"]
+    return None
