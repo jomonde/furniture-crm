@@ -34,17 +34,3 @@ def get_close_rate():
     unsold = get_clients_by_status("Unsold")
     total = sold + unsold
     return round((sold / total) * 100, 1) if total > 0 else 0.0
-
-# ----------- TASKS ------------ #
-
-def get_tasks():
-    result = supabase.table("tasks").select("*").order("due_date", desc=False).execute()
-    return result.data
-
-def add_task(title, due_date):
-    supabase.table("tasks").insert({
-        "title": title,
-        "due_date": due_date.isoformat(),
-        "completed": False,
-        "created_at": datetime.utcnow().isoformat()
-    }).execute()

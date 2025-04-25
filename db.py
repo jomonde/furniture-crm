@@ -132,12 +132,14 @@ def get_average_days_between_sales(client_id):
     return round(avg_days, 1)
 
 # Add a new task to follow up
-def add_task(client_id, description, due_date, message=None, sale_id=None):
+def add_task(client_id, description, due_date, title=None, message=None, sale_id=None):
     task_data = {
         "client_id": client_id,
         "description": description,
         "due_date": due_date,
-        "completed": False
+        "completed": False,
+        "title": title or description[:50],
+        "message": message
     }
 
     if message:
