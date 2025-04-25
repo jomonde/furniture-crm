@@ -62,7 +62,7 @@ def run_daily_task_generator():
                         sketch_data=latest_sketch
                     )
 
-                    add_task(client_id, desc, date.today().isoformat(), message, title=desc[:50])
+                    add_task(client_id, desc, date.today().isoformat(), message=message, title=desc[:50])
 
         # --- 2. Sale-Level Tasks ---
         for sale in sales:
