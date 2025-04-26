@@ -1,5 +1,5 @@
 from supabase import create_client
-from datetime import datetime
+from datetime import (datetime, date)
 import os
 import streamlit as st
 
@@ -175,8 +175,6 @@ def get_open_tasks():
         .execute()
     return result.data if result.data else []
 
-from datetime import date
-
 def get_overdue_tasks():
     today = date.today().isoformat()
     result = supabase.table("tasks") \
@@ -229,3 +227,64 @@ def get_client_id(name=None, phone=None):
     if data and len(data) > 0:
         return data[0]["id"]
     return None
+
+def update_client_summary(client_id, summary_text):
+    supabase.table("clients").update({
+        "client_summary": summary_text,
+        "summary_last_updated": datetime.utcnow().isoformat()
+    }).eq("id", client_id).execute()
+
+
+def compute_client_last_modified(client_id):
+    """
+    Calculate the latest modification timestamp for a client based on client info, notes, sketches, sales, and tasks.
+    """
+
+    # 1. Pull client core info
+    client = get_client_by_id(client_id)
+    timestamps = []
+
+    if client and client.get("updated_at"):
+        timestamps.append(client["updated_at"])
+
+    # 2. Pull notes timestamps
+    notes = get_notes_by_client(client_id)
+    for note in notes:
+        if note.get("timestamp"):
+            timestamps.append(note["timestamp"])
+
+    # 3. Pull sketches timestamps
+    sketches = get_room_sketches_by_client(client_id)
+    for sketch in sketches:
+        if sketch.get("created_at"):
+            timestamps.append(sketch["created_at"])
+
+    # 4. Pull sales timestamps
+    sales = get_sales_by_client(client_id)
+    for sale in sales:
+        if sale.get("date"):
+            timestamps.append(sale["date"])
+
+    # 5. Pull tasks timestamps
+    tasks = get_tasks_by_client(client_id)
+    for task in tasks:
+        if task.get("due_date"):
+            timestamps.append(task["due_date"])
+
+    if not timestamps:
+        return None  # No data available
+
+    # Convert all timestamps to datetime objects
+    datetime_stamps = []
+    for ts in timestamps:
+        try:
+            datetime_stamps.append(datetime.fromisoformat(ts))
+        except Exception:
+            pass  # Skip any invalid timestamp formats
+
+    if not datetime_stamps:
+        return None
+
+    # Return the latest timestamp
+    latest_timestamp = max(datetime_stamps)
+    return latest_timestamp.isoformat()

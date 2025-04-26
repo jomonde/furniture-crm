@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 from db import (
     get_all_clients_with_ids,
     get_client_by_id,
@@ -11,7 +12,9 @@ from db import (
     update_sale,
     get_tasks_by_client,
     complete_task,
-    add_client
+    add_client,
+    update_client_summary,
+    compute_client_last_modified
 )
 from engines.sketch_engine import generate_sketch_summary
 from engines.message_engine import generate_followup_message
@@ -83,10 +86,28 @@ if client_display != "-- Select --":
     # CLIENT SUMMARY
     # -------------------------------
     client_data = gather_client_history(selected_id)
-    summary = generate_client_summary(client_data)
 
-    st.markdown("### 🧠 Client Summary")
-    st.markdown(summary)
+    # Check if cached summary is still good
+    summary = client_data.get("client_summary")
+    summary_last_updated = client_data.get("summary_last_updated")
+
+    # Assume you have a function to determine the client's "last modified" timestamp
+    client_last_modified = compute_client_last_modified(selected_id)
+
+    needs_regeneration = (
+        summary is None or
+        summary_last_updated is None or
+        summary_last_updated < client_last_modified
+    )
+
+    if needs_regeneration:
+        summary = generate_client_summary(client_data)
+        # Save the new summary and updated timestamp
+        update_client_summary(selected_id, summary)
+
+    # Display the summary in a collapsible expander
+    with st.expander("🧠 Client Summary", expanded=False):
+        st.markdown(summary)
 
     # -------------------------------
     # ADD ROOM SKETCH
