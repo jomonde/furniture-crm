@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 from db import (
     get_all_clients_with_ids,
     get_client_by_id,
@@ -12,59 +11,31 @@ from db import (
     update_sale,
     get_tasks_by_client,
     complete_task,
-    add_client,
     update_client_summary,
     compute_client_last_modified
 )
 from engines.sketch_engine import generate_sketch_summary
 from engines.message_engine import generate_followup_message
 from engines.client_engine import gather_client_history, generate_client_summary
+from datetime import datetime
 
-st.set_page_config(page_title="Clients", page_icon="👥")
-st.title("👥 Clients")
+# --- Page Setup ---
+st.set_page_config(page_title="Guest List", page_icon="👥", layout="wide")
+st.title("👥 The Guest List")
 
-# -------------------------------
-# CLIENT SELECTION
-# -------------------------------
+# --- Client Selection ---
 clients = get_all_clients_with_ids()
 client_options = {f"{c['name']} ({c['phone']})": c["id"] for c in clients}
-st.markdown("### ➕ Add New Client")
-with st.expander("New Client Form", expanded=False):
-    with st.form("add_new_client"):
-        new_name = st.text_input("Name")
-        new_phone = st.text_input("Phone")
-        new_email = st.text_input("Email")
-        new_address = st.text_input("Address")
-        new_rooms = st.text_input("Rooms of Interest")
-        new_style = st.text_input("Style Preference")
-        new_budget = st.text_input("Budget")
-        new_status = st.selectbox("Status", ["active", "inactive"])
-        submit_new = st.form_submit_button("Add Client")
 
-        if submit_new and new_name and new_phone:
-            add_client(new_name, new_phone, new_email, new_address, new_rooms, new_style, new_budget, new_status)
-            st.success(f"Client '{new_name}' added successfully.")
-            st.rerun()
+search_term = st.text_input("🔍 Search for Client (name or phone)")
+filtered_clients = [label for label in client_options if search_term.lower() in label.lower()]
+selected_client = st.selectbox("Select Client", filtered_clients if filtered_clients else ["No matches found"])
 
-# 🔍 Searchable client dropdown
-st.markdown("### 🔎 Select a Client to View Details")
-search_term = st.text_input("Search Client by Name or Phone")
-filtered_clients = {
-    label: cid for label, cid in client_options.items()
-    if search_term.lower() in label.lower()
-}
-
-client_display = st.selectbox("Client List", ["-- Select --"] + list(filtered_clients.keys()))
-
-if client_display != "-- Select --":
-    selected_id = client_options[client_display]
+if selected_client != "No matches found":
+    selected_id = client_options[selected_client]
     client_data = get_client_by_id(selected_id)
-    sketches = get_room_sketches_by_client(selected_id)
-    notes = get_notes_by_client(selected_id)
 
-    # -------------------------------
-    # CLIENT INFO + EDIT FORM
-    # -------------------------------
+    # --- Client Info Section ---
     with st.expander("📝 Client Info", expanded=True):
         with st.form("edit_client_info"):
             name = st.text_input("Name", client_data["name"])
@@ -75,6 +46,7 @@ if client_display != "-- Select --":
             style = st.text_input("Style Preference", client_data["style"])
             budget = st.text_input("Budget", client_data["budget"])
             status = st.selectbox("Status", ["active", "inactive"], index=0 if client_data["status"] == "active" else 1)
+
             save_info = st.form_submit_button("💾 Save Changes")
 
             if save_info:
@@ -82,37 +54,46 @@ if client_display != "-- Select --":
                 st.success("Client updated.")
                 st.rerun()
 
-    # -------------------------------
-    # CLIENT SUMMARY
-    # -------------------------------
-    client_data = gather_client_history(selected_id)
+        # Display last contact info
+        last_contact = client_data.get("last_contact")
+        if last_contact:
+            days_since = (datetime.utcnow() - datetime.fromisoformat(last_contact)).days
+            st.caption(f"🕰️ Last Contact: {days_since} days ago ({last_contact[:10]})")
+        else:
+            st.caption("🕰️ Last Contact: Never")
 
-    # Check if cached summary is still good
-    summary = client_data.get("client_summary")
+    # --- Smart Client Summary (with caching) ---
+    st.markdown("### 🧠 Client Summary")
+
+    # Gather full client history
+    full_history = gather_client_history(selected_id)
+
+    # Check if summary is fresh
+    existing_summary = client_data.get("client_summary")
     summary_last_updated = client_data.get("summary_last_updated")
-
-    # Assume you have a function to determine the client's "last modified" timestamp
     client_last_modified = compute_client_last_modified(selected_id)
 
     needs_regeneration = (
-        summary is None or
-        summary_last_updated is None or
+        not existing_summary or
+        not summary_last_updated or
         summary_last_updated < client_last_modified
     )
 
     if needs_regeneration:
-        summary = generate_client_summary(client_data)
-        # Save the new summary and updated timestamp
-        update_client_summary(selected_id, summary)
+        summary_text = generate_client_summary(full_history)
+        update_client_summary(selected_id, summary_text)
+    else:
+        summary_text = existing_summary
 
-    # Display the summary in a collapsible expander
-    with st.expander("🧠 Client Summary", expanded=False):
-        st.markdown(summary)
+    # Collapsible AI Summary
+    with st.expander("🧠 View Client Summary", expanded=False):
+        st.markdown(summary_text)
 
-    # -------------------------------
-    # ADD ROOM SKETCH
-    # -------------------------------
-    with st.expander("📐 Add Room Sketch"):
+    # --- Room Sketches ---
+    sketches = get_room_sketches_by_client(selected_id)
+    st.markdown("### 📐 Room Sketches")
+
+    with st.expander("➕ Add New Sketch"):
         with st.form("add_sketch_form", clear_on_submit=True):
             room_type = st.selectbox("Room Type", ["Living Room", "Bedroom", "Dining", "Office", "Outdoor", "Other"])
             dimensions = st.text_input("Dimensions")
@@ -121,106 +102,87 @@ if client_display != "-- Select --":
             desired_furniture = st.text_area("Desired Furniture")
             special_considerations = st.text_area("Special Considerations")
 
-            if st.form_submit_button("Save Sketch"):
+            save_sketch = st.form_submit_button("Save Sketch")
+            if save_sketch:
                 add_room_sketch(selected_id, room_type, dimensions, layout_notes, current_furniture, desired_furniture, special_considerations)
                 st.success("Sketch saved.")
                 st.rerun()
 
-    # -------------------------------
-    # DISPLAY SKETCHES + AI SUMMARIES
-    # -------------------------------
     if sketches:
-        st.subheader("📐 Saved Sketches")
         for sketch in sketches[::-1]:
-            created_at = sketch.get("created_at", "Unknown Date")
-            title = f"{sketch['room_type']} — {created_at[:10]}"
+            created_at = sketch.get('created_at', 'Unknown Date')
+            title = f"{sketch['room_type']} — {created_at[:10] if created_at != 'Unknown Date' else 'No Date'}"
+
             with st.expander(title):
                 st.markdown(f"**Dimensions:** {sketch['dimensions']}")
                 st.markdown(f"**Current Furniture:** {sketch['current_furniture']}")
                 st.markdown(f"**Desired Furniture:** {sketch['desired_furniture']}")
                 st.markdown(f"**Special Considerations:** {sketch['special_considerations']}")
-                if st.button(f"🧠 Summarize Layout ({title})", key=f"sketch_summary_{sketch['id']}"):
-                    summary = generate_sketch_summary(sketch, client_data)
-                    st.markdown("**🪄 AI Summary:**")
-                    st.markdown(summary)
+                if st.button(f"🧠 Summarize Layout", key=f"sketch_summary_{sketch['id']}"):
+                    sketch_summary = generate_sketch_summary(sketch, client_data)
+                    st.markdown("**🪄 AI Layout Summary:**")
+                    st.markdown(sketch_summary)
 
-    # -------------------------------
-    # NOTES + AI GENERATION
-    # -------------------------------
-    st.subheader("🗒️ Notes")
+    # --- Notes and AI Follow-Up Generator ---
+    st.markdown("### 🗒️ Notes & Messages")
 
+    notes = get_notes_by_client(selected_id)
     for note in notes[::-1]:
         with st.expander(f"{note['timestamp'][:10]} — {note['type']}"):
             st.markdown(note["content"])
 
-    st.markdown("### ✍️ Add Manual Note")
-    with st.form("manual_note_form", clear_on_submit=True):
-        manual_note = st.text_area("Write your note")
-        save_note = st.form_submit_button("Save Note")
-        if save_note and manual_note.strip():
-            add_note(selected_id, "Manual", manual_note)
-            st.success("Note saved.")
-            st.rerun()
+    with st.expander("➕ Add Note or Follow-Up"):
+        with st.form("add_note_form", clear_on_submit=True):
+            manual_note = st.text_area("Write a Manual Note or Message")
+            client_type = st.selectbox("Client Type", ["bought", "browsed"])
+            message_style = st.selectbox("Message Style", ["text", "phone", "email", "handwritten"])
+            generate = st.form_submit_button("Generate AI Message")
+            save_manual = st.form_submit_button("Save Manual Note")
 
-    st.markdown("### 🤖 Generate Note with AI")
-    with st.form("ai_note_form"):
-        client_type = st.selectbox("Guest Type", ["bought", "browsed"])
-        message_style = st.selectbox("Message Style", ["text", "phone", "email", "handwritten"])
-        prompt = st.text_input("Prompt (e.g. follow-up idea, call script, layout message)")
-        submit_ai = st.form_submit_button("Generate")
-
-        if submit_ai:
-            msg = generate_followup_message(client_type, message_style, client_data, sketches[-1] if sketches else {})
-            st.markdown("**🧠 AI Note Suggestion:**")
-            st.markdown(msg)
-            if st.button("💾 Save This Note"):
-                add_note(selected_id, message_style.capitalize(), msg)
-                st.success("AI note saved.")
+            if save_manual and manual_note.strip():
+                add_note(selected_id, "Manual", manual_note)
+                from db import update_last_contact
+                update_last_contact(selected_id)
+                st.success("Manual note saved.")
                 st.rerun()
 
-    # -------------------------------
-    # 📦 SALES HISTORY
-    # -------------------------------
-    st.subheader("📦 Sales History")
+            if generate:
+                ai_message = generate_followup_message(client_type, message_style, client_data, sketches[-1] if sketches else {})
+                add_note(selected_id, message_style.capitalize(), ai_message)
+                from db import update_last_contact
+                update_last_contact(selected_id)
+                st.success("AI message saved.")
+                st.rerun()
+
+    # --- Sales History ---
+    st.markdown("### 📦 Sales History")
 
     sales = get_sales_by_client(selected_id)
-
     if sales:
         for sale in sales:
-            with st.expander(f"${sale['amount']} — {sale['status']} ({sale['date'][:10]})", expanded=False):
+            with st.expander(f"${sale['amount']} — {sale['status']} ({sale['date'][:10]})"):
                 st.markdown(f"**Amount:** ${sale['amount']}")
                 st.markdown(f"**Status:** {sale['status']}")
-                st.markdown(f"**Notes:** {sale.get('notes', '') or '—'}")
-
-                with st.form(f"update_sale_{sale['id']}", clear_on_submit=False):
-                    new_amount = st.number_input("Amount", value=float(sale["amount"]), step=10.0)
-                    new_status = st.selectbox("Status", ["Open", "Closed", "Void", "Unsold"], index=["Open", "Closed", "Void", "Unsold"].index(sale["status"]))
-                    new_notes = st.text_area("Notes", value=sale.get("notes", ""))
-                    update = st.form_submit_button("Update Sale")
-
-                    if update:
-                        update_sale(sale["id"], new_amount, new_status, new_notes)
-                        st.success("Sale updated!")
-                        st.rerun()
+                st.markdown(f"**Notes:** {sale.get('notes', '-')}")
     else:
-        st.info("No sales recorded for this client.")
+        st.info("No sales recorded yet.")
 
-    # -------------------------------
-    # 📋 TASKS FOR THIS CLIENT
-    # -------------------------------
-    st.subheader("📋 Client Tasks")
+    # --- Add a Sale ---
+    with st.expander("➕ Add Sale for This Client"):
+        from components.sale_form import sale_entry_form  # Adjust path if needed
+        sale_entry_form(selected_client_id=selected_id)
+
+    # --- Related Tasks ---
+    st.markdown("### 📋 Related Tasks")
 
     tasks = get_tasks_by_client(selected_id)
     open_tasks = [t for t in tasks if not t["completed"]]
     completed_tasks = [t for t in tasks if t["completed"]]
 
     if open_tasks:
-        st.markdown("### 🟡 Open Tasks")
+        st.markdown("#### 🟡 Open Tasks")
         for task in open_tasks:
-            label = f"{task['description']} — due {task['due_date']}"
-            if task.get("message"):
-                st.markdown(f"💬 *Suggested Message:* {task['message']}")
-            if st.checkbox(label, key=f"task_{task['id']}"):
+            if st.checkbox(f"{task['description']} — Due {task['due_date']}", key=f"task_complete_{task['id']}"):
                 complete_task(task["id"])
                 st.success("Task marked complete.")
                 st.rerun()
@@ -230,6 +192,5 @@ if client_display != "-- Select --":
     if completed_tasks:
         with st.expander("✅ Completed Tasks"):
             for task in completed_tasks:
-                st.markdown(f"- {task['description']} — done on {task['due_date']}")
-    else:
-        st.info("No completed tasks yet.")
+                st.markdown(f"- {task['description']} — Done {task['due_date']}")
+

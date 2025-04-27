@@ -47,7 +47,14 @@ Write this in a personal, natural voice. Avoid robotic language. Be helpful and 
     return prompt
 
 
-def generate_followup_message(client_type, style, client_data, sketch_data=None):
+def generate_followup_message(
+    lifecycle_stage,
+    followup_type,
+    message_style,
+    client_data,
+    sketch_data=None,
+    custom_prompt=None
+):
     template_text = get_template_text(client_type, style)
     tone_instruction = get_tone_instruction(style)
 

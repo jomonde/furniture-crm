@@ -165,7 +165,28 @@ def get_tasks_by_date(due_date):
 
 # Mark a task as complete
 def complete_task(task_id):
+    """
+    Marks a task as completed and updates the related client's last_contact timestamp.
+    """
+    # First, fetch the task to get the client_id
+    task_response = supabase.table("tasks").select("*").eq("id", task_id).single().execute()
+    task = task_response.data
+
+    if not task:
+        return False
+
+    client_id = task.get("client_id")
+
+    # Mark the task as completed
     supabase.table("tasks").update({"completed": True}).eq("id", task_id).execute()
+
+    # Update client's last_contact to now
+    if client_id:
+        from datetime import datetime
+        now = datetime.utcnow().isoformat()
+        supabase.table("clients").update({"last_contact": now}).eq("id", client_id).execute()
+
+    return True
 
 def get_open_tasks():
     result = supabase.table("tasks") \
@@ -288,3 +309,65 @@ def compute_client_last_modified(client_id):
     # Return the latest timestamp
     latest_timestamp = max(datetime_stamps)
     return latest_timestamp.isoformat()
+
+def get_all_tasks():
+    """
+    Pulls all tasks from the database.
+    """
+    response = supabase.table("tasks").select("*").execute()
+    if response.data:
+        return response.data
+    return []
+
+def get_all_sales():
+    """
+    Pulls all sales records from the database.
+    """
+    response = supabase.table("sales").select("*").execute()
+    if response.data:
+        return response.data
+    return []
+
+def update_last_contact(client_id):
+    """
+    Updates the last_contact field for a client to now().
+    """
+    from datetime import datetime
+    now = datetime.utcnow().isoformat()
+
+    supabase.table("clients").update({"last_contact": now}).eq("id", client_id).execute()
+
+def add_sale(client_id, amount, status, sale_date, notes=""):
+    """
+    Adds a new sale record to the database.
+    """
+    sale_data = {
+        "client_id": client_id,
+        "amount": amount,
+        "status": status,
+        "date": sale_date,
+        "notes": notes
+    }
+    supabase.table("sales").insert(sale_data).execute()
+
+def gather_client_history(client_id):
+    """
+    Gathers complete client profile data, notes, sketches, sales, and tasks.
+    Useful for generating AI summaries and smarter follow-ups.
+    """
+
+    client_info = get_client_by_id(client_id)
+    sketches = get_room_sketches_by_client(client_id)
+    notes = get_notes_by_client(client_id)
+    sales = get_sales_by_client(client_id)
+    tasks = get_tasks_by_client(client_id)
+
+    history = {
+        "info": client_info,
+        "sketches": sketches,
+        "notes": notes,
+        "sales": sales,
+        "tasks": tasks
+    }
+
+    return history
