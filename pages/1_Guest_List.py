@@ -110,8 +110,8 @@ if selected_client != "No matches found":
 
     if sketches:
         for sketch in sketches[::-1]:
-            created_at = sketch.get('created_at', 'Unknown Date')
-            title = f"{sketch['room_type']} — {created_at[:10] if created_at != 'Unknown Date' else 'No Date'}"
+            created_at = sketch.get('created_at')
+            title = f"{sketch['room_type']} — {created_at[:10] if created_at else 'No Date'}"
 
             with st.expander(title):
                 st.markdown(f"**Dimensions:** {sketch['dimensions']}")
