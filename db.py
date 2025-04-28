@@ -371,3 +371,28 @@ def gather_client_history(client_id):
     }
 
     return history
+
+def safe_fetch_client_data(selected_id):
+    if not selected_id:
+        return {
+            "client_data": None,
+            "sketches": [],
+            "notes": [],
+            "sales": [],
+            "tasks": [],
+            "full_history": None,
+            "client_last_modified": None
+        }
+
+    from engines.client_engine import gather_client_history
+
+    return {
+        "client_data": get_client_by_id(selected_id),
+        "sketches": get_room_sketches_by_client(selected_id),
+        "notes": get_notes_by_client(selected_id),
+        "sales": get_sales_by_client(selected_id),
+        "tasks": get_tasks_by_client(selected_id),
+        "full_history": gather_client_history(selected_id),
+        "client_last_modified": compute_client_last_modified(selected_id)
+    }
+
